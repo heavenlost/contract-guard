@@ -1,0 +1,11 @@
+{
+  "schema": "contract_guard_baseline/v1",
+  "suppressions": [
+    {
+      "check": "naming-convention",
+      "file": "src/TrainingVault.sol",
+      "start_line": 8,
+      "reason": "Example-only naming warning candidate; non-high findings only."
+    }
+  ]
+}

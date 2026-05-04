@@ -1,0 +1,29 @@
+{
+  "schema": "contract_guard_policy/v1",
+  "schema_version": "1",
+  "local_only": true,
+  "scan": {
+    "changed_only": true,
+    "diff_base": "origin/main...HEAD",
+    "baseline_file": ".contract-guard-baseline.json",
+    "fail_on_severity": "high",
+    "fail_on_confidence": "low"
+  },
+  "reporting": {
+    "formats": ["json", "markdown", "sarif"],
+    "include_raw_stdout_stderr": false
+  },
+  "fuzzing": {
+    "enabled": false,
+    "tools": [],
+    "target": "test/VaultInvariant.t.sol",
+    "contract": "VaultInvariantHarness"
+  },
+  "ai_triage": {
+    "enabled": false,
+    "send_private_snippets": false
+  },
+  "hosted_uploads": {
+    "enabled": false
+  }
+}

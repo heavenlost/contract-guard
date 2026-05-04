@@ -1,0 +1,15 @@
+{
+  "schema": "contract_guard_baseline/v1",
+  "suppressions": [
+    {
+      "id": "slither:unchecked-transfer:contracts/Token.sol:7",
+      "reason": "Known false positive after manual review; non-high findings only."
+    },
+    {
+      "check": "unused-return",
+      "file": "contracts/LegacyAdapter.sol",
+      "start_line": 42,
+      "reason": "Legacy adapter intentionally ignores this optional return value."
+    }
+  ]
+}

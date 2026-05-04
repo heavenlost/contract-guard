@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "contract-guard-ci"
+version = "0.1.0"
+description = "Smart contract security CI for Foundry projects"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+authors = [{name = "长砺"}]
+keywords = ["ethereum", "solidity", "foundry", "slither", "security", "ci"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Topic :: Security",
+  "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = []
+
+[project.scripts]
+contract-guard = "contract_guard_ci.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

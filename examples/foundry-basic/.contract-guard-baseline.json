@@ -1,0 +1,11 @@
+{
+  "schema": "contract_guard_baseline/v1",
+  "suppressions": [
+    {
+      "check": "naming-convention",
+      "file": "src/GuardedCounter.sol",
+      "start_line": 3,
+      "reason": "Example non-high suppression shape for onboarding only; high findings remain unsuppressed."
+    }
+  ]
+}

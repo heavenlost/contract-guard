@@ -1,0 +1,61 @@
+name: contract-guard-ci
+
+on:
+  pull_request:
+    paths:
+      - "**/*.sol"
+      - "foundry.toml"
+      - "remappings.txt"
+      - ".contract-guard-baseline.json"
+      - "src/**"
+      - "tests/**"
+      - "scripts/**"
+      - "pyproject.toml"
+      - ".github/workflows/contract-guard-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  security-ci:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Contract Guard CI
+        run: pip install -e .
+      - name: Probe repository
+        run: contract-guard plan --repo . --json
+      - name: Run deterministic scan
+        run: |
+          set +e
+          set -u -o pipefail
+          mkdir -p contract-guard-reports
+
+          scan_args=(--repo . --changed-only --baseline-file .contract-guard-baseline.json)
+          if [ -n "${{ github.base_ref }}" ]; then
+            scan_args+=(--diff-base "origin/${{ github.base_ref }}...HEAD")
+          fi
+
+          contract-guard scan "${scan_args[@]}" --format json > contract-guard-reports/scan.json
+          scan_status=$?
+          contract-guard scan "${scan_args[@]}" --fail-on-severity none --format markdown > contract-guard-reports/scan.md
+          contract-guard scan "${scan_args[@]}" --fail-on-severity none --format sarif > contract-guard-reports/scan.sarif
+          exit "$scan_status"
+      - name: Upload SARIF to code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: contract-guard-reports/scan.sarif
+      - name: Upload deterministic reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-guard-reports
+          path: contract-guard-reports/

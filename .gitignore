@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build/package artifacts
+build/
+dist/
+*.egg-info/
+
+# Type/lint caches
+.mypy_cache/
+.ruff_cache/
+
+# Local environment/secrets
+.env
+.env.*
+
+# Local automation/runtime artifacts
+workspace/tmp/
+*.log
+
+# Node/tool caches that may appear in target fixtures
+node_modules/
+out/
+cache/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
