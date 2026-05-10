@@ -1420,12 +1420,14 @@ def test_cli_ai_triage_combined_redacts_and_separates_sections() -> None:
 def test_github_action_preserves_reports_and_uploads_sarif() -> None:
     workflow = (ROOT / ".github" / "workflows" / "contract-guard-ci.yml").read_text(encoding="utf-8")
     assert "fetch-depth: 0" in workflow
+    assert "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5" in workflow
+    assert "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065" in workflow
     assert "contract-guard scan \"${scan_args[@]}\" --format json > contract-guard-reports/scan.json" in workflow
     assert "contract-guard scan \"${scan_args[@]}\" --fail-on-severity none --format markdown > contract-guard-reports/scan.md" in workflow
     assert "contract-guard scan \"${scan_args[@]}\" --fail-on-severity none --format sarif > contract-guard-reports/scan.sarif" in workflow
-    assert "github/codeql-action/upload-sarif@v3" in workflow
+    assert "github/codeql-action/upload-sarif@7fd177fa680c9881b53cdab4d346d32574c9f7f4" in workflow
     assert "sarif_file: contract-guard-reports/scan.sarif" in workflow
-    assert "actions/upload-artifact@v4" in workflow
+    assert "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02" in workflow
     assert ".contract-guard-baseline.json" in workflow
 
 
