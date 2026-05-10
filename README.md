@@ -57,6 +57,23 @@ For a public-safe local beta flow:
 
 The beta path stays local-runner first: no hosted uploads, no private snippet sharing, no live AI provider calls, no payment/custody scope, and no audit-completeness claims by default.
 
+
+## Pre-Audit Evidence Pack
+
+Generate a local-first evidence bundle before audits, releases, upgrades, or risky pull requests:
+
+```bash
+contract-guard evidence-pack \
+  --repo . \
+  --output-dir /tmp/contract_guard_evidence_pack \
+  --repo-label your-repo-label \
+  --format markdown
+```
+
+The pack writes Markdown/JSON/SARIF artifacts locally and keeps deterministic tool output as the source of truth. By default it requires no hosted private-code upload, sends no private snippets, includes no raw stdout/stderr in public summaries, makes no live AI provider call, and makes no audit/compliance/guarantee claim.
+
+See `docs/pre-audit-evidence-pack.md` for the public evidence-pack walkthrough and `docs/ci-supply-chain-safety.md` for the local workflow safety checker.
+
 ## PR scan outputs
 
 Run a deterministic local scan:

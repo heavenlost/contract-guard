@@ -9,7 +9,9 @@ from .false_positives import dumps_false_positive_json, false_positive_review_pa
 from .fuzzing import dumps_fuzz_hooks_json, fuzz_hooks_payload, render_fuzz_hooks_markdown
 from .invariants import dumps_invariant_json, invariant_payload, render_invariant_markdown
 from .policy import dumps_policy_json, load_policy, render_policy_markdown
+from .workflow_safety import dumps_workflow_safety_json, render_workflow_safety_markdown, workflow_safety_payload
 from .dogfood import build_payload as dogfood_payload, render_dogfood_markdown
+from .evidence_pack import DEFAULT_OUTPUT_DIR as EVIDENCE_PACK_DEFAULT_OUTPUT_DIR, build_evidence_pack, dumps_evidence_pack_json, render_evidence_pack_markdown
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -65,10 +67,27 @@ def main(argv: list[str] | None = None) -> int:
     policy_p.add_argument("--policy-file", default=None, help="Optional policy file path; defaults to .contract-guard-policy.json")
     policy_p.add_argument("--format", choices=["json", "markdown"], default="json")
 
+
+    workflow_p = sub.add_parser("workflow-check", help="Lint GitHub Actions workflows for CI supply-chain safety")
+    workflow_p.add_argument("--repo", default=".", help="Repository path")
+    workflow_p.add_argument("--workflow", default=None, help="Optional repo-relative workflow file to check")
+    workflow_p.add_argument("--format", choices=["json", "markdown"], default="json")
+
     dogfood_p = sub.add_parser("dogfood-readiness", help="Run the local beta dogfood readiness fixture bundle")
     dogfood_p.add_argument("--fixture-repo", default="examples/foundry-basic", help="Repo path to exercise, relative to this checkout by default")
     dogfood_p.add_argument("--output-dir", default="/tmp/contract-guard-dogfood-readiness", help="Directory for local JSON/Markdown/SARIF outputs")
     dogfood_p.add_argument("--format", choices=["json", "markdown"], default="json")
+
+    evidence_p = sub.add_parser("evidence-pack", help="Generate a local-first pre-audit evidence pack without hosted uploads or live AI calls")
+    evidence_p.add_argument("--repo", default=".", help="Repository path")
+    evidence_p.add_argument("--output-dir", default=str(EVIDENCE_PACK_DEFAULT_OUTPUT_DIR), help="Directory for local evidence-pack artifacts")
+    evidence_p.add_argument("--repo-label", default=None, help="Safe repo label for manifest context; defaults to directory name")
+    evidence_p.add_argument("--run-local-tools", action="store_true", help="Explicit opt-in to run local Foundry/Slither instead of dry-run skipped-tool reports")
+    evidence_p.add_argument("--policy-file", default=None, help="Optional policy file path; defaults to .contract-guard-policy.json")
+    evidence_p.add_argument("--baseline-file", default=None, help="Optional baseline file path; defaults to .contract-guard-baseline.json when present")
+    evidence_p.add_argument("--fail-on-severity", choices=["high", "medium", "low", "informational", "none"], default="high", help="Failure threshold used for the deterministic scan artifact")
+    evidence_p.add_argument("--fail-on-confidence", choices=["high", "medium", "low", "none"], default="low", help="Confidence threshold used for the deterministic scan artifact")
+    evidence_p.add_argument("--format", choices=["json", "markdown"], default="json")
 
     triage_p = sub.add_parser("ai-triage-payload", help="Build a redacted advisory-only AI triage payload without external calls")
     triage_p.add_argument("--id", default="", help="Optional deterministic finding id")
@@ -199,12 +218,39 @@ def main(argv: list[str] | None = None) -> int:
             print(dumps_policy_json(payload))
         return 0 if payload["ok"] else 1
 
+
+    if args.command == "workflow-check":
+        repo = Path(args.repo)
+        payload = workflow_safety_payload(repo, args.workflow)
+        if args.format == "markdown":
+            print(render_workflow_safety_markdown(payload))
+        else:
+            print(dumps_workflow_safety_json(payload))
+        return 0 if payload["ok"] else 1
+
     if args.command == "dogfood-readiness":
         payload = dogfood_payload(args.fixture_repo, Path(args.output_dir))
         if args.format == "markdown":
             print(render_dogfood_markdown(payload), end="")
         else:
             print(dumps_json(payload))
+        return 0 if payload["ok"] else 1
+
+    if args.command == "evidence-pack":
+        payload = build_evidence_pack(
+            Path(args.repo),
+            Path(args.output_dir),
+            repo_label=args.repo_label,
+            run_local_tools=args.run_local_tools,
+            policy_file=args.policy_file,
+            baseline_file=args.baseline_file,
+            fail_on_severity=args.fail_on_severity,
+            fail_on_confidence=args.fail_on_confidence,
+        )
+        if args.format == "markdown":
+            print(render_evidence_pack_markdown(payload), end="")
+        else:
+            print(dumps_evidence_pack_json(payload))
         return 0 if payload["ok"] else 1
 
     if args.command == "ai-triage-payload":
