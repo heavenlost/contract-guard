@@ -292,7 +292,16 @@ Pack status: `{pack_status}`
 
 This pack is deterministic local evidence plus human-review scaffolding. It is not an audit, proof, guarantee, certification, legal/compliance opinion, hosted private-code scanner, payment rail, wallet, or custody product.
 
-Read `manifest.json` first, then review deterministic evidence, policy/baseline governance, workflow/supply-chain trust, and human-review notes.
+## Recommended review order
+
+1. `manifest.json` — source of truth, safety flags, artifact list, and non-claims.
+2. `deterministic-evidence/scan.md` — human-readable deterministic report.
+3. `policy-and-baseline/baseline-review.md` — baseline and policy governance.
+4. `workflow-and-supply-chain/workflow-check.md` — workflow supply-chain and permission lint.
+5. `workflow-and-supply-chain/permission-matrix.md` — data-flow and permission boundary.
+6. `human-review/readiness-summary.md` — questions for a human security owner.
+
+For a 10-minute skim, review `manifest.json`, `deterministic-evidence/scan.md`, `policy-and-baseline/baseline-review.md`, `workflow-and-supply-chain/workflow-check.md`, and `human-review/readiness-summary.md`.
 """
 
 

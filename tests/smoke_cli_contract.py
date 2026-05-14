@@ -1599,6 +1599,12 @@ def test_cli_evidence_pack_markdown_states_boundaries() -> None:
     assert "payment_or_custody_scope: `false`" in proc.stdout
     assert "not_an_audit" in proc.stdout
     assert "not an audit, proof, guarantee" in readme
+    assert "## Recommended review order" in readme
+    assert "`manifest.json` — source of truth" in readme
+    assert "`deterministic-evidence/scan.md`" in readme
+    assert "`policy-and-baseline/baseline-review.md`" in readme
+    assert "`workflow-and-supply-chain/workflow-check.md`" in readme
+    assert "`human-review/readiness-summary.md`" in readme
     assert "No hosted upload, live AI provider call, private snippet sharing" in data_flow
     assert "not an audit, not formal verification, not a guarantee" in readiness
 
